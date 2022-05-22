@@ -29,11 +29,10 @@ def extract_aspects(dataset, model, device, label_list=["O", "B-ASP", "I-ASP", "
     return data_for_next_dataset
 
 
-def classify_polarity(dataset, model, device):
+def classify_polarity(dataset, model, device, sentiments={0: 'Negative', 1: "Neutral", 2: 'Positive', -1: ''}):
     result = []
 
     model.eval()
-    sentiments = {0: 'Negative', 1: "Neutral", 2: 'Positive', -1: ''}
     for i, inp in enumerate(dataset):
         batch = tuple(t.unsqueeze(0).to(device) if t is not None else None for t in inp)
 

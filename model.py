@@ -1,4 +1,5 @@
-from transformers.models.bert.modeling_bert import BertPooler, BertSelfAttention
+from transformers.models.bert.modeling_bert import BertModel, BertPooler, BertSelfAttention
+from transformers import AutoConfig
 from dataset_utils import SENTIMENT_PADDING
 import torch
 import torch.nn as nn
@@ -23,17 +24,21 @@ class SelfAttention(nn.Module):
 
 
 class LCF_ATEPC(nn.Module):
-    def __init__(self, bert_base_model, use_bert_spc, dropout, max_seq_len, LCF, device):
+    def __init__(self, bert_base_model_name, use_bert_spc_ate, use_bert_spc_asc, dropout_ate, dropout_asc, dropout_out, max_seq_len, LCF, device, num_pol_classes=3):
         super(LCF_ATEPC, self).__init__()
-        config = bert_base_model.config
-        self.bert_for_global_context = bert_base_model
+        config = AutoConfig.from_pretrained(bert_base_model_name)
+        config.hidden_dropout_prob = dropout_ate
+        self.bert_for_global_context = BertModel.from_pretrained(bert_base_model_name, config=config)
         self.torch_device = device
         assert LCF in ['cdm', 'cdw', 'fusion']
         self.LCF = LCF
-        self.use_bert_spc = use_bert_spc
-        self.bert_for_local_context = copy.deepcopy(self.bert_for_global_context)
+        self.use_bert_spc_ate = use_bert_spc_ate
+        self.use_bert_spc_asc = use_bert_spc_asc
+        new_config = copy.deepcopy(config)
+        new_config.hidden_dropout_prob = dropout_asc
+        self.bert_for_local_context = BertModel.from_pretrained(bert_base_model_name, config=new_config)
         self.pooler = BertPooler(config)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout_out)
         self.max_seq_len = max_seq_len
         self.SA1 = SelfAttention(config, self.max_seq_len, device)
         self.SA2 = SelfAttention(config, self.max_seq_len, device)
@@ -41,14 +46,13 @@ class LCF_ATEPC(nn.Module):
         self.linear_double = nn.Linear(self.hidden_state * 2, self.hidden_state)
         self.linear_triple = nn.Linear(self.hidden_state * 3, self.hidden_state)
 
-        self.classifier_polarity = torch.nn.Linear(self.hidden_state, 3)
+        self.classifier_polarity = nn.Linear(self.hidden_state, num_pol_classes)
         self.num_labels = 6
-        self.classifier_aspect = torch.nn.Linear(self.hidden_state, self.num_labels)
+        self.classifier_aspect = nn.Linear(self.hidden_state, self.num_labels)
 
     def get_batch_token_labels_bert_base_indices(self, labels):
         if labels is None:
             return
-        # BERT-SPC input to BERT-BASE input
         labels = labels.detach().cpu().numpy()
         for text_i in range(len(labels)):
             sep_index = np.argmax((labels[text_i] == 5))
@@ -67,10 +71,11 @@ class LCF_ATEPC(nn.Module):
 
         cdm_vec = cdm_vec.unsqueeze(2) if cdm_vec is not None else None
         cdw_vec = cdw_vec.unsqueeze(2) if cdw_vec is not None else None
-        if not self.use_bert_spc:
-            input_ids_spc = self.get_ids_for_local_context_extractor(input_ids_spc)
+        global_context_ids = copy.deepcopy(input_ids_spc)
+        if not self.use_bert_spc_ate:
+            global_context_ids = self.get_ids_for_local_context_extractor(input_ids_spc)
             labels = self.get_batch_token_labels_bert_base_indices(labels)
-        global_context_out = self.bert_for_global_context(input_ids_spc, token_type_ids, attention_mask)['last_hidden_state']
+        global_context_out = self.bert_for_global_context(global_context_ids, token_type_ids, attention_mask)['last_hidden_state']
 
         batch_size, max_len, feat_dim = global_context_out.shape
         global_valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32).to(self.torch_device)
@@ -84,7 +89,9 @@ class LCF_ATEPC(nn.Module):
         ate_logits = self.classifier_aspect(global_context_out)
 
         if cdm_vec is not None or cdw_vec is not None:
-            local_context_ids = self.get_ids_for_local_context_extractor(input_ids_spc)
+            local_context_ids = copy.deepcopy(input_ids_spc)
+            if not self.use_bert_spc_asc:
+                local_context_ids = self.get_ids_for_local_context_extractor(input_ids_spc)
             local_context_out = self.bert_for_local_context(local_context_ids)['last_hidden_state']
             batch_size, max_len, feat_dim = local_context_out.shape
             local_valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32).to(self.torch_device)
