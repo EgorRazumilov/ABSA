@@ -23,8 +23,8 @@ def train_loop(model, dataloader, optimizer, device='cuda'):
         ate_loss_av_tr += loss_ate.detach().cpu()
         apc_loss_av_tr += loss_apc.detach().cpu()
 
-        ate_loss_av_tr /= len(dataloader)
-        apc_loss_av_tr /= len(dataloader)
+    ate_loss_av_tr /= len(dataloader)
+    apc_loss_av_tr /= len(dataloader)
     return ate_loss_av_tr, apc_loss_av_tr
 
 
