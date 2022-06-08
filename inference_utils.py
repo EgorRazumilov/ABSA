@@ -1,5 +1,5 @@
 import torch
-
+from tqdm import tqdm
 
 def extract_aspects(dataset, model, device, label_list=["O", "B-ASP", "I-ASP", "[CLS]", "[SEP]"]):
     data_for_next_dataset = []
@@ -51,7 +51,7 @@ def extract_aspects_batch(dataloader, model, device, label_list=["O", "B-ASP", "
     model.eval()
     label_map = {i: label for i, label in enumerate(label_list, 1)}
 
-    for i, inp in enumerate(dataloader):
+    for i, inp in enumerate(tqdm(dataloader)):
         batch = tuple(t.to(device) if t is not None else None for t in inp[:-1])
         with torch.no_grad():
             ate_logits, apc_logits = model(*batch)
@@ -79,7 +79,7 @@ def classify_polarity_batch(dataloader, model, device, sentiments={0: 'Negative'
     result = []
 
     model.eval()
-    for i, inp in enumerate(dataloader):
+    for i, inp in enumerate(tqdm(dataloader)):
         batch = tuple(t.to(device) if t is not None else None for t in inp[:-1])
 
         with torch.no_grad():
