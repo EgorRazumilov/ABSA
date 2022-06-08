@@ -18,7 +18,8 @@ class ATEPCDataset(Dataset):
                  tokenizer,
                  max_sent_len,
                  SRD,
-                 spacy_model):
+                 spacy_model=None,
+                 return_idx=False):
         assert mode in ['train_test', 'infer_ate', 'infer_apc']
         assert mode_SRD in ['simple', 'syntax_tree']
         assert isinstance(tokenizer, transformers.PreTrainedTokenizerFast)
@@ -87,6 +88,8 @@ class ATEPCDataset(Dataset):
         self.iob_tags_set = ["O", "B-ASP", "I-ASP", self.tokenizer.bos_token, self.tokenizer.eos_token]
         if spacy_model:
             self.nlp = spacy.load(spacy_model)
+
+        self.return_idx = return_idx
 
     def __get_cdm_simple(self, input_ids, index):
         aspect_start = self.aspect_starts[index]
@@ -265,7 +268,10 @@ class ATEPCDataset(Dataset):
 
         valid_ids = torch.tensor(valid_ids)
         attention_labels = torch.tensor(attention_labels)
-        return input_ids, token_type_ids, attention_mask, iob_tag, polarity, valid_ids, cdm, cdw
+        if not self.return_idx:
+            return input_ids, token_type_ids, attention_mask, iob_tag, polarity, valid_ids, cdm, cdw
+        else:
+            return input_ids, token_type_ids, attention_mask, iob_tag, polarity, valid_ids, cdm, cdw, index
 
     def __len__(self):
         return len(self.sentences)
