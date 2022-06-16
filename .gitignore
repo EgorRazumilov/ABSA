@@ -1,2 +1,5 @@
 /.ipynb_checkpoints/
 /.idea/
+/data/
+/trained_models/
+/__pycache_/
