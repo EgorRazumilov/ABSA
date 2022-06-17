@@ -1,6 +1,6 @@
 from transformers.models.bert.modeling_bert import BertModel, BertPooler, BertSelfAttention
 from transformers import AutoConfig
-from dataset_utils import SENTIMENT_PADDING
+from utils.dataset import SENTIMENT_PADDING
 import torch
 import torch.nn as nn
 import numpy as np

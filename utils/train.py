@@ -1,10 +1,9 @@
 import torch
-from sklearn.metrics import f1_score, accuracy_score
+from sklearn.metrics import f1_score
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import seqeval
-
+from seqeval.metrics import f1_score as f1_sec
 
 def train_loop(model, dataloader, optimizer, device='cuda'):
     model.train()
@@ -74,7 +73,7 @@ def eval_loop(model, dataloader, eval_ATE=False, eval_ASC=True, device='cuda',
             all_trues_ASC.extend(batch[4].tolist())
 
     if eval_ATE:
-        f1_ATE = seqeval.metrics.f1_score(all_trues_ATE, all_preds_ATE)
+        f1_ATE = f1_sec(all_trues_ATE, all_preds_ATE)
     if eval_ASC:
         f1_ASC = f1_score(all_trues_ASC, all_preds_ASC, average='macro')
     ate_loss_av_val /= len(dataloader)
